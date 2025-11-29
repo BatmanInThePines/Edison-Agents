@@ -1,0 +1,96 @@
+/* -------------------------------------------------
+   Edison Agents — Global Styles
+   Anthony West Inc © Edison AI
+---------------------------------------------------*/
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Page Layout */
+body {
+    background: #0d0d0f;
+    color: #e4e4e9;
+    line-height: 1.6;
+    padding: 40px 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+header p {
+    font-size: 1.1rem;
+    opacity: 0.7;
+}
+
+/* Agent Grid */
+.agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 25px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    margin-top: 40px;
+}
+
+/* Agent Card */
+.agent-card {
+    display: block;
+    padding: 25px;
+    background: #1b1b1e;
+    border: 1px solid #2d2d33;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #fff;
+    transition: all 0.22s ease;
+}
+
+.agent-card:hover {
+    background: #26262b;
+    border-color: #7b5cff;
+    transform: translateY(-4px);
+    box-shadow: 0 0 22px rgba(123, 92, 255, 0.35);
+}
+
+/* Card Text */
+.agent-card h2 {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    color: #dcdcff;
+}
+
+.agent-card p {
+    font-size: 1rem;
+    opacity: 0.85;
+}
+
+/* Footer */
+footer {
+    margin-top: 60px;
+    text-align: center;
+    opacity: 0.5;
+    font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.9rem;
+    }
+    .agent-card {
+        padding: 20px;
+    }
+}
