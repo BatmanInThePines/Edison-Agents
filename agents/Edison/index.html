@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edison Concierge</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+    .avatar {
+      width: 180px;
+      height: 180px;
+      border-radius: 9999px;
+      background: url("../assets/Agents/Edison/00_Edison_Start_9-16.png") center/cover no-repeat;
+      border: 3px solid rgba(255,255,255,0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 1rem;
+      padding: 1rem;
+      width: min(580px, 92vw);
+      backdrop-filter: blur(12px);
+    }
+    .row {
+      display: flex;
+      gap: .5rem;
+      margin-top: .75rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: .5rem .75rem;
+      border-radius: .5rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(15, 23, 42, 0.3);
+      color: #fff;
+    }
+    button {
+      background: #38bdf8;
+      border: none;
+      color: #0f172a;
+      font-weight: 600;
+      border-radius: .5rem;
+      padding: .5rem .9rem;
+      cursor: pointer;
+    }
+    #messages {
+      max-height: 240px;
+      overflow-y: auto;
+      font-size: .85rem;
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+      margin-top: 1rem;
+      white-space: pre-line;
+    }
+    .msg-user { color: #e2e8f0; }
+    .msg-bot { color: #bae6fd; }
+  </style>
+</head>
+<body>
+  <div class="avatar" aria-label="Edison AI Avatar"></div>
+  <div class="card">
+    <h2 style="margin-top:0;">Edison Concierge</h2>
+    <p id="status">Click Start to connect to the ElevenLabs agent.</p>
+    <button id="startBtn">Start</button>
+
+    <div id="messages" aria-live="polite"></div>
+
+    <div class="row">
+      <input id="userInput" type="text" placeholder="Ask Edison something…" />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const AGENT_ID = "agent_0701k9c9w3hzfrht48vcjh62awk9";
+    const WS_URL = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${AGENT_ID}`;
+
+    let ws = null;
+    let audioCtx = null;
+    let playing = false;
+    const audioQueue = [];
+
+    const statusEl = document.getElementById("status");
+    const messagesEl = document.getElementById("messages");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const startBtn = document.getElementById("startBtn");
+
+    function addMsg(text, who = "bot") {
+      const div = document.createElement("div");
+      div.textContent = text;
+      div.className = who === "user" ? "msg-user" : "msg-bot";
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    async function enqueueAudioFromBase64(b64) {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } else if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+      const arrayBuffer = base64ToArrayBuffer(b64);
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioQueue.push(audioBuffer);
+      if (!playing) playNext();
+    }
+
+    function playNext() {
+      if (audioQueue.length === 0) {
+        playing = false;
+        return;
+      }
+      playing = true;
+      const buffer = audioQueue.shift();
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.onended = () => playNext();
+      source.start(0);
+    }
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        statusEl.textContent = "Connected to ElevenLabs agent.";
+        ws.send(JSON.stringify({
+          type: "user_message",
+          text: "You are Edison, the concierge AI. Greet the visitor warmly and invite them to ask a question."
+        }));
+      };
+
+      ws.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "agent_response") {
+          const text = data.agent_response_event?.agent_response;
+          if (text) addMsg(text, "bot");
+        }
+
+        if (data.type === "audio") {
+          const b64 = data.audio_event?.audio_base_64;
+          if (b64) enqueueAudioFromBase64(b64);
+        }
+
+        if (data.type === "ping") {
+          ws.send(JSON.stringify({
+            type: "pong",
+            event_id: data.ping_event.event_id
+          }));
+        }
+      };
+
+      ws.onclose = () => { statusEl.textContent = "Disconnected."; };
+      ws.onerror = (err) => {
+        console.error(err);
+        statusEl.textContent = "Error connecting.";
+      };
+    }
+
+    startBtn.addEventListener("click", async () => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } else if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+      connect();
+    });
+
+    sendBtn.addEventListener("click", () => {
+      const text = userInput.value.trim();
+      if (!text) return;
+      addMsg(text, "user");
+      userInput.value = "";
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "user_message", text }));
+      } else {
+        addMsg("Not connected yet.", "bot");
+      }
+    });
+
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+  </script>
+</body>
+</html>
